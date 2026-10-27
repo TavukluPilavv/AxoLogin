@@ -12,7 +12,8 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT'
+    // Compile against the oldest supported Paper API so the plugin can run on 1.21.1+.
+    compileOnly 'io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT'
     implementation 'org.xerial:sqlite-jdbc:3.50.3.0'
     implementation 'org.mindrot:jbcrypt:0.4'
 }
