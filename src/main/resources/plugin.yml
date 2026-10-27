@@ -6,14 +6,19 @@ description: Turkish login and registration for the Lobby Paper server
 author: Axo
 commands:
   register:
-    description: Create an AxoLogin account
-    usage: /register <sifre> <tekrar> <email>
+    description: Oyuncu kaydi
+    usage: /register <şifre>
   login:
-    description: Login to AxoLogin
-    usage: /login <sifre>
+    description: Oyuncu girisi
+    usage: /login <şifre>
   forgot:
-    description: Start password recovery
-    usage: /forgot <email>
-  reset:
-    description: Reset password
-    usage: /reset <kod> <yeni-sifre>
+    description: Sifre kurtarma bilgisi
+    usage: /forgot
+  axologin:
+    description: AxoLogin yonetici komutlari
+    usage: /axologin reset <oyuncu> <yeni-şifre>
+    permission: axologin.admin
+permissions:
+  axologin.admin:
+    description: AxoLogin sifre sifirlama yetkisi
+    default: op
