@@ -37,7 +37,7 @@ public final class AxoLogin {
     private final Map<UUID, Long> deadlines = new ConcurrentHashMap<>();
     private AuthStore store;
     private String lobby = "lobby";
-    private String authServer = "limbo";
+    private String authServer = "lobby";
     private int timeoutSeconds = 120;
     private int maxAttempts = 3;
     private long sessionMillis = Duration.ofHours(3).toMillis();
