@@ -159,10 +159,7 @@ public final class AxoLogin {
                         if (left <= 0) p.disconnect(Component.text("3 hatalı giriş denemesi. Tekrar bağlan.", NamedTextColor.RED));
                         return;
                     }
-                    String ip = ipOf(p);
-                    if (!existing.get().lastIp().equals(ip)) {
-                        msg(p, "IP adresin değişmiş. Güvenlik için e-posta ile hesap kurtarma gereklidir.", NamedTextColor.RED); return;
-                    }
+                    // A changed IP invalidates the old session; a correct password re-verifies the player.
                     authenticated(p); msg(p, "✓ Giriş başarılı!", NamedTextColor.GREEN); return;
                 }
                 if (type.equals("forgot")) {
