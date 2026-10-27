@@ -1,3 +1,17 @@
 # AxoLogin Paper - Lobby ayarlari
 timeout-seconds: 120
 max-attempts: 3
+
+# Oyuncular giris yapana kadar bu bos dunyada bekletilir.
+void-world: axologin_void
+void-x: 0.5
+void-y: 100.0
+void-z: 0.5
+void-yaw: 0.0
+void-pitch: 0.0
+
+# Giris basarili olunca oyuncu bu dunyanin dogus noktasina gider.
+lobby-world: world
+
+# Minecraft'in kendi muzik sesi (resource pack gerekmez).
+music-enabled: true
