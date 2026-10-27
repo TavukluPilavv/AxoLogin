@@ -167,28 +167,89 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
                 || event.getFrom().getBlockZ() != event.getTo().getBlockZ())) {
             Location from = event.getFrom();
             event.setTo(new Location(from.getWorld(), from.getX(), from.getY(), from.getZ(), event.getTo().getYaw(), event.getTo().getPitch()));
+            return;
         }
+        Player p = event.getPlayer();
+        if (isLobby(p.getWorld()) && !p.isOp() && p.isFlying()) p.setFlying(false);
     }
 
-    @EventHandler public void onBreak(BlockBreakEvent event) { if (isLocked(event.getPlayer())) event.setCancelled(true); }
-    @EventHandler public void onPlace(BlockPlaceEvent event) { if (isLocked(event.getPlayer())) event.setCancelled(true); }
-    @EventHandler public void onInteract(PlayerInteractEvent event) { if (isLocked(event.getPlayer())) event.setCancelled(true); }
-    @EventHandler public void onDrop(PlayerDropItemEvent event) { if (isLocked(event.getPlayer())) event.setCancelled(true); }
-    @EventHandler public void onSwap(PlayerSwapHandItemsEvent event) { if (isLocked(event.getPlayer())) event.setCancelled(true); }
+    @EventHandler public void onBreak(BlockBreakEvent event) { if (isLocked(event.getPlayer())) { event.setCancelled(true); loginRequired(event.getPlayer()); return; }
+        if (isLobby(event.getPlayer().getWorld()) && !event.getPlayer().isOp()) {
+            event.setCancelled(true);
+            event.getPlayer().sendActionBar(Component.text("§c✖ §fLobi dünyasında blok kıramazsınız."));
+        }
+    }
+    @EventHandler public void onPlace(BlockPlaceEvent event) {
+        Player p = event.getPlayer();
+        if (isLocked(p)) { event.setCancelled(true); loginRequired(p); return; }
+        if (isLobby(p.getWorld()) && !p.isOp()) {
+            event.setCancelled(true);
+            p.sendActionBar(Component.text(event.getBlockPlaced().getType() == Material.TNT ? "§c✖ §fLobide TNT kullanamazsınız." : "§c✖ §fLobi dünyasında blok koyamazsınız."));
+        }
+    }
+    @EventHandler public void onInteract(PlayerInteractEvent event) {
+        Player p = event.getPlayer();
+        if (isLocked(p)) { event.setCancelled(true); loginRequired(p); return; }
+        if (isLobby(p.getWorld()) && !p.isOp() && event.getItem() != null) {
+            Material m = event.getItem().getType();
+            if (m == Material.ENDER_PEARL || m == Material.ENDER_EYE) {
+                event.setCancelled(true);
+                p.sendActionBar(Component.text("§c✖ §fLobide ender incisi kullanamazsınız."));
+            } else if (m == Material.FLINT_AND_STEEL || m == Material.FIRE_CHARGE) {
+                event.setCancelled(true);
+                p.sendActionBar(Component.text("§c✖ §fLobide ateş yakamazsınız."));
+            }
+        }
+    }
+    @EventHandler public void onDrop(PlayerDropItemEvent event) {
+        if (isLocked(event.getPlayer())) { event.setCancelled(true); loginRequired(event.getPlayer()); }
+    }
+    @EventHandler public void onSwap(PlayerSwapHandItemsEvent event) {
+        if (isLocked(event.getPlayer())) { event.setCancelled(true); loginRequired(event.getPlayer()); }
+    }
     @EventHandler public void onInventory(InventoryClickEvent event) {
-        if (event.getWhoClicked() instanceof Player player && isLocked(player)) event.setCancelled(true);
+        if (event.getWhoClicked() instanceof Player player && isLocked(player)) { event.setCancelled(true); loginRequired(player); }
+    }
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPvp(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Player victim)) return;
+        Player attacker = event.getDamager() instanceof Player p ? p :
+            event.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player p ? p : null;
+        if (attacker != null && isLocked(attacker)) { event.setCancelled(true); loginRequired(attacker); return; }
+        if (isLobby(victim.getWorld()) && (attacker == null || !attacker.isOp() || !victim.isOp())) {
+            event.setCancelled(true);
+            if (attacker != null && !attacker.isOp()) attacker.sendActionBar(Component.text("§c✖ §fLobide PvP kapalı."));
+        }
     }
     @EventHandler public void onDamage(EntityDamageEvent event) {
-        if (event.getEntity() instanceof Player player && isLocked(player)) event.setCancelled(true);
+        if (event.getEntity() instanceof Player player) {
+            if (isLocked(player)) event.setCancelled(true);
+            else if (isLobby(player.getWorld()) && !player.isOp()) event.setCancelled(true);
+        }
+    }
+    @EventHandler public void onFlight(PlayerToggleFlightEvent event) {
+        Player p = event.getPlayer();
+        if (isLocked(p)) { event.setCancelled(true); loginRequired(p); }
+        else if (isLobby(p.getWorld()) && !p.isOp() && event.isFlying()) {
+            event.setCancelled(true); p.setAllowFlight(false);
+            p.sendActionBar(Component.text("§c✖ §fLobide uçuş kapalı."));
+        }
+    }
+    @EventHandler public void onIgnite(BlockIgniteEvent event) {
+        if (isLobby(event.getBlock().getWorld()) && event.getPlayer() != null && !event.getPlayer().isOp()) event.setCancelled(true);
+    }
+    @EventHandler public void onTntExplode(EntityExplodeEvent event) {
+        if (isLobby(event.getLocation().getWorld()) && event.getEntity() instanceof TNTPrimed) event.setCancelled(true);
+    }
+    @EventHandler public void onBlockExplode(BlockExplodeEvent event) {
+        if (isLobby(event.getBlock().getWorld())) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onChat(AsyncPlayerChatEvent event) {
         if (isLocked(event.getPlayer())) {
             event.setCancelled(true);
-            String raw = event.getMessage().trim();
-            if (raw.startsWith("/")) return;
-            Bukkit.getScheduler().runTask(this, () -> event.getPlayer().sendMessage("§cGiriş yapana kadar yalnızca /login veya /register komutlarını kullanabilirsiniz."));
+            Bukkit.getScheduler().runTask(this, () -> loginRequired(event.getPlayer()));
         }
     }
 
@@ -304,6 +365,17 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         player.sendTitle("§c✖", "§f" + message, 0, 35, 10);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.7f);
         player.sendMessage("§c✖ §f" + message);
+    }
+
+    private void loginRequired(Player player) {
+        if (!isLocked(player)) return;
+        player.sendActionBar(Component.text("§c✖ §fLütfen önce giriş yapınız!"));
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.55f, 0.8f);
+        player.sendMessage("§cAxoLogin §8» §fLütfen önce /login veya /register komutuyla giriş yapınız.");
+    }
+
+    private boolean isLobby(World world) {
+        return world != null && world.getName().equalsIgnoreCase(getConfig().getString("lobby-world", "world"));
     }
 
     private boolean isLocked(Player player) {
