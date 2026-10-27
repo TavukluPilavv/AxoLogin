@@ -1,0 +1,25 @@
+# AxoLogin configuration
+# IMPORTANT: Keep this file private. Use an app password for SMTP, never your normal email password.
+messages:
+  prefix: "&8[&bAxoLogin&8] &r"
+  timeout-seconds: 120
+  max-attempts: 3
+  session-hours: 3
+  # Must be a server registered in velocity.toml. Authentication is required before connecting to it.
+  lobby-server: "lobby"
+
+database:
+  # Relative to the Velocity proxy working directory
+  file: "plugins/AxoLogin/accounts.db"
+
+email:
+  enabled: false
+  smtp-host: "smtp.gmail.com"
+  smtp-port: 587
+  username: "your-email@gmail.com"
+  password: "PUT_GMAIL_APP_PASSWORD_HERE"
+  from: "your-email@gmail.com"
+  reset-code-minutes: 10
+
+# A true limbo/void waiting room requires a compatible LimboAPI build or a separate limbo backend.
+# This initial version blocks backend access until authentication but does not create a world itself.
