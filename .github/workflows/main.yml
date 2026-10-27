@@ -32,3 +32,11 @@ jobs:
 
       - name: Build plugin
         run: gradle --no-daemon clean build
+
+      - name: Upload AxoLogin JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: AxoLogin-JAR
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 30
