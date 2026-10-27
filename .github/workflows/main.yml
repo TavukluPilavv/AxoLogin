@@ -1,4 +1,4 @@
-name: AxoLogin Build
+name: AxoLogin Paper Build
 
 on:
   push:
@@ -12,31 +12,26 @@ permissions:
 
 jobs:
   build:
-    name: Compile AxoLogin
+    name: Build AxoLogin Paper plugin
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10.2"
-
       - name: Build plugin
         run: gradle --no-daemon clean build
-
-      - name: Upload AxoLogin JAR
+      - name: Upload AxoLogin Paper JAR
         uses: actions/upload-artifact@v4
         with:
-          name: AxoLogin-JAR
-          path: build/libs/*.jar
+          name: AxoLogin-Paper-JAR
+          path: build/libs/AxoLogin-1.0.0.jar
           if-no-files-found: error
           retention-days: 30
