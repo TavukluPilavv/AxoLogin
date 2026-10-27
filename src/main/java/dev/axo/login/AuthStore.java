@@ -1,0 +1,56 @@
+package dev.axo.login;
+
+import org.mindrot.jbcrypt.BCrypt;
+
+import java.sql.*;
+import java.nio.file.*;
+import java.util.Optional;
+
+final class AuthStore implements AutoCloseable {
+    record Account(String name, String passwordHash, String email, String lastIp) {}
+    private final Connection connection;
+
+    AuthStore(Path file) throws Exception {
+        Files.createDirectories(file.getParent());
+        connection = DriverManager.getConnection("jdbc:sqlite:" + file.toAbsolutePath());
+        try (Statement s = connection.createStatement()) {
+            s.executeUpdate("CREATE TABLE IF NOT EXISTS accounts (uuid TEXT PRIMARY KEY, name TEXT NOT NULL, password_hash TEXT NOT NULL, email TEXT NOT NULL UNIQUE, last_ip TEXT NOT NULL DEFAULT '')");
+        }
+    }
+
+    synchronized Optional<Account> get(String uuid) throws SQLException {
+        try (PreparedStatement p = connection.prepareStatement("SELECT name,password_hash,email,last_ip FROM accounts WHERE uuid=?")) {
+            p.setString(1, uuid);
+            try (ResultSet r = p.executeQuery()) {
+                return r.next() ? Optional.of(new Account(r.getString(1), r.getString(2), r.getString(3), r.getString(4))) : Optional.empty();
+            }
+        }
+    }
+
+    synchronized boolean emailTaken(String email) throws SQLException {
+        try (PreparedStatement p = connection.prepareStatement("SELECT 1 FROM accounts WHERE lower(email)=lower(?)")) {
+            p.setString(1, email);
+            try (ResultSet r = p.executeQuery()) { return r.next(); }
+        }
+    }
+
+    synchronized void create(String uuid, String name, String password, String email, String ip) throws SQLException {
+        try (PreparedStatement p = connection.prepareStatement("INSERT INTO accounts(uuid,name,password_hash,email,last_ip) VALUES(?,?,?,?,?)")) {
+            p.setString(1, uuid); p.setString(2, name); p.setString(3, BCrypt.hashpw(password, BCrypt.gensalt(12)));
+            p.setString(4, email); p.setString(5, ip); p.executeUpdate();
+        }
+    }
+
+    synchronized boolean passwordMatches(Account account, String password) {
+        try { return BCrypt.checkpw(password, account.passwordHash()); }
+        catch (IllegalArgumentException ex) { return false; }
+    }
+
+    synchronized void updateIp(String uuid, String ip) throws SQLException {
+        try (PreparedStatement p = connection.prepareStatement("UPDATE accounts SET last_ip=? WHERE uuid=?")) {
+            p.setString(1, ip); p.setString(2, uuid); p.executeUpdate();
+        }
+    }
+
+    @Override public void close() throws SQLException { connection.close(); }
+}
