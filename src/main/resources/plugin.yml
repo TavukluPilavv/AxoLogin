@@ -1,0 +1,19 @@
+name: AxoLogin
+version: '1.0.0'
+main: dev.axo.login.AxoLogin
+api-version: '1.21'
+description: Turkish login and registration for the Lobby Paper server
+author: Axo
+commands:
+  register:
+    description: Create an AxoLogin account
+    usage: /register <sifre> <tekrar> <email>
+  login:
+    description: Login to AxoLogin
+    usage: /login <sifre>
+  forgot:
+    description: Start password recovery
+    usage: /forgot <email>
+  reset:
+    description: Reset password
+    usage: /reset <kod> <yeni-sifre>
