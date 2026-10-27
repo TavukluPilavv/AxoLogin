@@ -213,12 +213,13 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPvp(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player victim)) return;
-        Player attacker = event.getDamager() instanceof Player p ? p :
-            event.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player p ? p : null;
+        Player attacker = null;
+        if (event.getDamager() instanceof Player directPlayer) attacker = directPlayer;
+        else if (event.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player shooter) attacker = shooter;
         if (attacker != null && isLocked(attacker)) { event.setCancelled(true); loginRequired(attacker); return; }
-        if (isLobby(victim.getWorld()) && (attacker == null || !attacker.isOp() || !victim.isOp())) {
+        if (isLobby(victim.getWorld())) {
             event.setCancelled(true);
-            if (attacker != null && !attacker.isOp()) attacker.sendActionBar(Component.text("§c✖ §fLobide PvP kapalı."));
+            if (attacker != null) attacker.sendActionBar(Component.text("§c✖ §fLobide PvP kapalı."));
         }
     }
     @EventHandler public void onDamage(EntityDamageEvent event) {
