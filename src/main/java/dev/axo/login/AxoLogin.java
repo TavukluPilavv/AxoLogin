@@ -62,7 +62,7 @@ public final class AxoLogin {
             proxy.getCommandManager().register(proxy.getCommandManager().metaBuilder("login").plugin(this).build(), new AuthCommand("login"));
             proxy.getCommandManager().register(proxy.getCommandManager().metaBuilder("forgot").plugin(this).build(), new AuthCommand("forgot"));
             proxy.getCommandManager().register(proxy.getCommandManager().metaBuilder("reset").plugin(this).build(), new AuthCommand("reset"));
-            proxy.getScheduler().buildTask(this, this::checkTimeouts).repeat(1, 1, TimeUnit.SECONDS).schedule();
+            proxy.getScheduler().buildTask(this, this::checkTimeouts).repeat(1, TimeUnit.SECONDS).schedule();
             logger.info("AxoLogin loaded. Configure an auth/limbo server before allowing players to join.");
         } catch (Exception e) {
             logger.error("AxoLogin could not start safely", e);
