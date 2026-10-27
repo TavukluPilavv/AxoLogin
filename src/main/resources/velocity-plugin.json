@@ -1,8 +1,0 @@
-{
-  "id": "axologin",
-  "name": "AxoLogin",
-  "version": "1.0.0",
-  "description": "Turkish authentication plugin for Velocity",
-  "authors": ["Axo"],
-  "main": "dev.axo.login.AxoLogin"
-}
