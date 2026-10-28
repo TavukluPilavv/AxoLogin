@@ -23,18 +23,12 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TNTPrimed;
-import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.block.BlockIgniteEvent;
-import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -44,9 +38,9 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
-import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.generator.ChunkGenerator;
+import org.bukkit.block.Biome;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
@@ -129,8 +123,10 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         UUID id = player.getUniqueId();
         authenticated.remove(id);
         attempts.put(id, 0);
+        boolean registered;
         try {
             var account = store.get(id.toString());
+            registered = account.isPresent();
             long now = System.currentTimeMillis();
             String currentIp = ipOf(player);
             if (account.isPresent() && !currentIp.isBlank()
@@ -171,8 +167,11 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         player.sendTitle("§b§lAxoLogin", "§fLütfen giriş yapınız veya kayıt olunuz", 10, 70, 10);
         player.sendMessage("§8§m--------------------------------");
         player.sendMessage("§b§lAxoLogin §8» §fHoş geldin, §b" + player.getName());
-        player.sendMessage("§fHesabın varsa §a/login <şifre> §fkomutunu kullan.");
-        player.sendMessage("§fHesabın yoksa §a/register <şifre> <şifre-tekrar> <Gmail> §fkomutuyla kayıt ol.");
+        if (registered) {
+            player.sendMessage("§fHesabınız kayıtlı. Giriş yapmak için §a/login <şifre> §fkomutunu kullanın.");
+        } else {
+            player.sendMessage("§fHesabınız kayıtlı değil. Kayıt olmak için §a/register <şifre> <şifre-tekrar> <Gmail> §fkomutunu kullanın.");
+        }
         player.sendMessage("§7Giriş süren: §e" + timeoutSeconds + " saniye");
         player.sendMessage("§8§m--------------------------------");
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 1.2f);
@@ -290,11 +289,21 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onCommandPreprocess(PlayerCommandPreprocessEvent event) {
-        if (!isLocked(event.getPlayer())) return;
+        Player player = event.getPlayer();
+        if (!isLocked(player)) return;
         String root = event.getMessage().toLowerCase(java.util.Locale.ROOT).split("\\s+", 2)[0];
         if (!root.equals("/register") && !root.equals("/login") && !root.equals("/forgot")) {
             event.setCancelled(true);
-            loginRequired(event.getPlayer());
+            try {
+                if (store.get(player.getUniqueId().toString()).isPresent()) {
+                    player.sendMessage("§cAxoLogin §8» §fHesabınız kayıtlı. Lütfen /login <şifre> kullanınız.");
+                    player.sendActionBar(Component.text("§c✖ §fÖnce /login <şifre> kullanınız."));
+                } else {
+                    player.sendMessage("§cAxoLogin §8» §fHenüz kayıtlı değilsiniz. Lütfen /register <şifre> <şifre-tekrar> <Gmail> kullanınız.");
+                    player.sendActionBar(Component.text("§c✖ §fÖnce kayıt olunuz."));
+                }
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.55f, 0.8f);
+            } catch (Exception e) { loginRequired(player); }
         }
     }
 
@@ -343,7 +352,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
                 return true;
             }
             if (type.equals("login")) {
-                if (existing.isEmpty()) { fail(player, "Hesabınız yok. Lütfen kayıt olunuz: /register <şifre>"); return true; }
+                if (existing.isEmpty()) { fail(player, "Hesabınız kayıtlı değil. Lütfen /register <şifre> <şifre-tekrar> <Gmail> kullanınız."); return true; }
                 if (args.length != 1) { fail(player, "Giriş yapmak için: /login <şifre>"); return true; }
                 if (!store.passwordMatches(existing.get(), args[0])) {
                     int count = attempts.merge(id, 1, Integer::sum);
