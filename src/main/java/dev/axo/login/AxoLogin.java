@@ -181,6 +181,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         authenticated.remove(id);
         attempts.remove(id);
         deadlines.remove(id);
+        sessionDeadlines.remove(id);
         BossBar bar = bars.remove(id);
         if (bar != null) bar.removeAll();
     }
@@ -424,6 +425,11 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         long now = System.currentTimeMillis();
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID id = player.getUniqueId();
+            Long sessionEnd = sessionDeadlines.get(id);
+            if (authenticated.contains(id) && sessionEnd != null && sessionEnd <= now) {
+                requireReauthentication(player);
+                continue;
+            }
             if (isLocked(player)) {
                 Long deadline = deadlines.get(id);
                 if (deadline != null) {
@@ -437,6 +443,39 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
                         player.kickPlayer("§cGiriş süreniz doldu. Lütfen tekrar bağlanınız.");
                     }
                 }
+            }
+        }
+    }
+
+    private void requireReauthentication(Player player) {
+        UUID id = player.getUniqueId();
+        authenticated.remove(id);
+        sessionDeadlines.remove(id);
+        deadlines.put(id, System.currentTimeMillis() + timeoutSeconds * 1000L);
+        player.setGameMode(GameMode.ADVENTURE);
+        player.setInvulnerable(true);
+        player.setAllowFlight(true);
+        player.setFlying(true);
+        player.setCollidable(false);
+        Location start = new Location(voidWorld,
+                getConfig().getDouble("void-x", 0.5),
+                getConfig().getDouble("void-y", 100.0),
+                getConfig().getDouble("void-z", 0.5),
+                (float) getConfig().getDouble("void-yaw", 0.0),
+                (float) getConfig().getDouble("void-pitch", 0.0));
+        player.teleport(start);
+        BossBar oldBar = bars.remove(id);
+        if (oldBar != null) oldBar.removeAll();
+        BossBar bar = Bukkit.createBossBar("§bAxoLogin §8• §fOturum süreniz doldu §7(" + timeoutSeconds + "s)", BarColor.BLUE, BarStyle.SOLID);
+        bar.setProgress(1.0);
+        bar.addPlayer(player);
+        bars.put(id, bar);
+        player.sendTitle("§c✖", "§fİki saat doldu, tekrar giriş yapınız", 10, 60, 10);
+        player.sendMessage("§cAxoLogin §8» §fİki saatlik oturum süreniz doldu. /login <şifre> kullanınız.");
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (!online.equals(player)) {
+                online.hidePlayer(this, player);
+                player.hidePlayer(this, online);
             }
         }
     }
