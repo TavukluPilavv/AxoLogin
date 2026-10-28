@@ -23,12 +23,18 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TNTPrimed;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.BlockIgniteEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -38,6 +44,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.generator.ChunkGenerator;
 
@@ -165,7 +172,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         player.sendMessage("§8§m--------------------------------");
         player.sendMessage("§b§lAxoLogin §8» §fHoş geldin, §b" + player.getName());
         player.sendMessage("§fHesabın varsa §a/login <şifre> §fkomutunu kullan.");
-        player.sendMessage("§fHesabın yoksa §a/register <şifre> §fkomutuyla kayıt ol.");
+        player.sendMessage("§fHesabın yoksa §a/register <şifre> <şifre-tekrar> <Gmail> §fkomutuyla kayıt ol.");
         player.sendMessage("§7Giriş süren: §e" + timeoutSeconds + " saniye");
         player.sendMessage("§8§m--------------------------------");
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 1.2f);
@@ -287,8 +294,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         String root = event.getMessage().toLowerCase(java.util.Locale.ROOT).split("\\s+", 2)[0];
         if (!root.equals("/register") && !root.equals("/login") && !root.equals("/forgot")) {
             event.setCancelled(true);
-            event.getPlayer().sendActionBar(Component.text("§c✖ §fÖnce lütfen giriş yapınız."));
-            event.getPlayer().playSound(event.getPlayer().getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.7f, 0.7f);
+            loginRequired(event.getPlayer());
         }
     }
 
