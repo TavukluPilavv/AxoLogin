@@ -1,35 +1,36 @@
 package dev.axo.login;
 
 import org.mindrot.jbcrypt.BCrypt;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.*;
 import java.util.Optional;
 
 final class AuthStore implements AutoCloseable {
-    record Account(String name, String passwordHash, String email, String lastIp) {}
+    record Account(String name, String passwordHash, String email, String lastIp, long lastLoginAt) {}
     private final Connection connection;
 
     AuthStore(Path file) throws Exception {
         Files.createDirectories(file.getParent());
         connection = DriverManager.getConnection("jdbc:sqlite:" + file.toAbsolutePath());
         try (Statement s = connection.createStatement()) {
-            s.executeUpdate("CREATE TABLE IF NOT EXISTS accounts (uuid TEXT PRIMARY KEY, name TEXT NOT NULL, password_hash TEXT NOT NULL, email TEXT NOT NULL UNIQUE, last_ip TEXT NOT NULL DEFAULT '')");
+            s.executeUpdate("CREATE TABLE IF NOT EXISTS accounts (uuid TEXT PRIMARY KEY, name TEXT NOT NULL, password_hash TEXT NOT NULL, email TEXT NOT NULL UNIQUE, last_ip TEXT NOT NULL DEFAULT '', last_login_at INTEGER NOT NULL DEFAULT 0)");
+            try { s.executeUpdate("ALTER TABLE accounts ADD COLUMN last_login_at INTEGER NOT NULL DEFAULT 0"); }
+            catch (SQLException ignored) { }
         }
     }
 
     synchronized Optional<Account> get(String uuid) throws SQLException {
-        try (PreparedStatement p = connection.prepareStatement("SELECT name,password_hash,email,last_ip FROM accounts WHERE uuid=?")) {
+        try (PreparedStatement p = connection.prepareStatement("SELECT name,password_hash,email,last_ip,last_login_at FROM accounts WHERE uuid=?")) {
             p.setString(1, uuid);
             try (ResultSet r = p.executeQuery()) {
-                return r.next() ? Optional.of(new Account(r.getString(1), r.getString(2), r.getString(3), r.getString(4))) : Optional.empty();
+                return r.next() ? Optional.of(new Account(r.getString(1), r.getString(2), r.getString(3), r.getString(4), r.getLong(5))) : Optional.empty();
             }
         }
     }
 
     synchronized void create(String uuid, String name, String password, String email, String ip) throws SQLException {
-        try (PreparedStatement p = connection.prepareStatement("INSERT INTO accounts(uuid,name,password_hash,email,last_ip) VALUES(?,?,?,?,?)")) {
+        try (PreparedStatement p = connection.prepareStatement("INSERT INTO accounts(uuid,name,password_hash,email,last_ip,last_login_at) VALUES(?,?,?,?,?,0)")) {
             p.setString(1, uuid); p.setString(2, name); p.setString(3, BCrypt.hashpw(password, BCrypt.gensalt(12)));
             p.setString(4, email); p.setString(5, ip); p.executeUpdate();
         }
@@ -46,11 +47,16 @@ final class AuthStore implements AutoCloseable {
         }
     }
 
+    synchronized void updateLoginSession(String uuid, String ip, long timestamp) throws SQLException {
+        try (PreparedStatement p = connection.prepareStatement("UPDATE accounts SET last_ip=?,last_login_at=? WHERE uuid=?")) {
+            p.setString(1, ip); p.setLong(2, timestamp); p.setString(3, uuid); p.executeUpdate();
+        }
+    }
+
     synchronized void updatePassword(String uuid, String password) throws SQLException {
         try (PreparedStatement p = connection.prepareStatement("UPDATE accounts SET password_hash=? WHERE uuid=?")) {
             p.setString(1, BCrypt.hashpw(password, BCrypt.gensalt(12)));
-            p.setString(2, uuid);
-            p.executeUpdate();
+            p.setString(2, uuid); p.executeUpdate();
         }
     }
 
