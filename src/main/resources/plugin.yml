@@ -7,7 +7,7 @@ author: Axo
 commands:
   register:
     description: Oyuncu kaydi
-    usage: /register <şifre>
+    usage: /register <şifre> <şifre-tekrar> <Gmail>
   login:
     description: Oyuncu girisi
     usage: /login <şifre>
