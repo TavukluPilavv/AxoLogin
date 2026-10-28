@@ -276,11 +276,18 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
             else if (isLobby(player.getWorld()) && !player.isOp()) event.setCancelled(true);
         }
     }
-    @EventHandler public void onFlight(PlayerToggleFlightEvent event) {
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onFlight(PlayerToggleFlightEvent event) {
         Player p = event.getPlayer();
-        if (isLocked(p)) { event.setCancelled(true); loginRequired(p); }
-        else if (isLobby(p.getWorld()) && !p.isOp() && event.isFlying()) {
-            event.setCancelled(true); p.setAllowFlight(false);
+        // Login voidunda uçuş gereklidir; lobby uçuş kısıtlaması kilitli oyunculara uygulanmaz.
+        if (isLocked(p)) {
+            p.setAllowFlight(true);
+            return;
+        }
+        if (isLobby(p.getWorld()) && !p.isOp() && event.isFlying()) {
+            event.setCancelled(true);
+            p.setFlying(false);
+            p.setAllowFlight(false);
             p.sendActionBar(Component.text("§c✖ §fLobide uçuş kapalı."));
         }
     }
