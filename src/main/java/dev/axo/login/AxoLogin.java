@@ -160,6 +160,10 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
                 (float) getConfig().getDouble("void-yaw", 0.0),
                 (float) getConfig().getDouble("void-pitch", 0.0));
         player.teleport(start);
+        // Other spawn plugins may teleport on join a tick later; keep unauthenticated players in the void.
+        Bukkit.getScheduler().runTask(this, () -> sendToLoginVoid(player));
+        Bukkit.getScheduler().runTaskLater(this, () -> sendToLoginVoid(player), 5L);
+        Bukkit.getScheduler().runTaskLater(this, () -> sendToLoginVoid(player), 20L);
         BossBar bar = Bukkit.createBossBar("§bAxoLogin §8• §fLütfen giriş yapınız §7(" + timeoutSeconds + "s)", BarColor.BLUE, BarStyle.SOLID);
         bar.setProgress(1.0);
         bar.addPlayer(player);
@@ -178,6 +182,17 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         if (musicEnabled) {
             player.playSound(player.getLocation(), Sound.MUSIC_DISC_OTHERSIDE, 0.22f, 1.0f);
         }
+    }
+
+    private void sendToLoginVoid(Player player) {
+        if (player == null || !player.isOnline() || !isLocked(player) || voidWorld == null) return;
+        Location start = new Location(voidWorld,
+                getConfig().getDouble("void-x", 0.5),
+                getConfig().getDouble("void-y", 100.0),
+                getConfig().getDouble("void-z", 0.5),
+                (float) getConfig().getDouble("void-yaw", 0.0),
+                (float) getConfig().getDouble("void-pitch", 0.0));
+        if (!player.getWorld().equals(voidWorld)) player.teleport(start);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -423,9 +438,18 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
 
     private void loginRequired(Player player) {
         if (!isLocked(player)) return;
-        player.sendActionBar(Component.text("§c✖ §fLütfen önce giriş yapınız!"));
+        try {
+            if (store.get(player.getUniqueId().toString()).isPresent()) {
+                player.sendActionBar(Component.text("§c✖ §fHesabınız kayıtlı: /login <şifre>"));
+                player.sendMessage("§cAxoLogin §8» §fHesabınız kayıtlı. Lütfen /login <şifre> kullanınız.");
+            } else {
+                player.sendActionBar(Component.text("§c✖ §fKayıt olun: /register <şifre> <şifre-tekrar> <Gmail>"));
+                player.sendMessage("§cAxoLogin §8» §fKayıtlı değilsiniz. Lütfen /register <şifre> <şifre-tekrar> <Gmail> kullanınız.");
+            }
+        } catch (Exception e) {
+            player.sendActionBar(Component.text("§c✖ §fÖnce giriş yapınız."));
+        }
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.55f, 0.8f);
-        player.sendMessage("§cAxoLogin §8» §fLütfen önce /login veya /register komutuyla giriş yapınız.");
     }
 
     private boolean isLobby(World world) {
