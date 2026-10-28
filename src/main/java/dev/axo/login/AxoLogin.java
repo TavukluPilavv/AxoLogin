@@ -5,6 +5,14 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.entity.TNTPrimed;
+import org.bukkit.entity.Projectile;
+import org.bukkit.event.block.BlockIgniteEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
@@ -44,6 +52,8 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
     private final Set<UUID> authenticated = ConcurrentHashMap.newKeySet();
     private final Map<UUID, Integer> attempts = new ConcurrentHashMap<>();
     private final Map<UUID, Long> deadlines = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> sessionDeadlines = new ConcurrentHashMap<>();
+    private static final long SESSION_MILLIS = 2L * 60L * 60L * 1000L;
     private final Map<UUID, BossBar> bars = new ConcurrentHashMap<>();
     private AuthStore store;
     private int timeoutSeconds;
@@ -112,6 +122,22 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         UUID id = player.getUniqueId();
         authenticated.remove(id);
         attempts.put(id, 0);
+        try {
+            var account = store.get(id.toString());
+            long now = System.currentTimeMillis();
+            String currentIp = ipOf(player);
+            if (account.isPresent() && !currentIp.isBlank()
+                    && currentIp.equals(account.get().lastIp())
+                    && account.get().lastLoginAt() > 0
+                    && now - account.get().lastLoginAt() < SESSION_MILLIS) {
+                sessionDeadlines.put(id, account.get().lastLoginAt() + SESSION_MILLIS);
+                completeLogin(player, "Güvenli oturumunuz hatırlandı.", false);
+                return;
+            }
+        } catch (Exception e) {
+            getLogger().warning("Oturum kontrolü yapılamadı: " + e.getMessage());
+        }
+        sessionDeadlines.remove(id);
         deadlines.put(id, System.currentTimeMillis() + timeoutSeconds * 1000L);
         player.setGameMode(GameMode.ADVENTURE);
         player.setInvulnerable(true);
@@ -300,10 +326,12 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         try {
             var existing = store.get(id.toString());
             if (type.equals("register")) {
-                if (existing.isPresent()) { fail(player, "Bu hesap zaten kayıtlı. Lütfen giriş yapınız."); return true; }
-                if (args.length != 1) { fail(player, "Kayıt olmak için: /register <şifre>"); return true; }
+                if (existing.isPresent()) { fail(player, "Hesabınız zaten kayıtlı. Lütfen /login <şifre> kullanınız."); return true; }
+                if (args.length != 3) { fail(player, "Kayıt için: /register <şifre> <şifre-tekrar> <Gmail>"); return true; }
                 if (args[0].length() < 8 || args[0].length() > 72) { fail(player, "Şifre 8-72 karakter arasında olmalıdır."); return true; }
-                store.create(id.toString(), player.getName(), args[0], id + "@noemail.axologin.invalid", ipOf(player));
+                if (!args[0].equals(args[1])) { fail(player, "Şifreler aynı değil. İki şifreyi de kontrol ediniz."); return true; }
+                if (!args[2].matches("(?i)^[A-Z0-9._%+-]+@gmail\\.com$")) { fail(player, "Lütfen geçerli bir @gmail.com adresi kullanınız."); return true; }
+                store.create(id.toString(), player.getName(), args[0], args[2].toLowerCase(java.util.Locale.ROOT), ipOf(player));
                 completeLogin(player, "Kayıt başarılı! Hoş geldiniz.");
                 return true;
             }
@@ -317,7 +345,6 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
                     if (left <= 0) player.kickPlayer("§cÇok fazla hatalı giriş yaptınız. Lütfen tekrar bağlanınız.");
                     return true;
                 }
-                store.updateIp(id.toString(), ipOf(player));
                 completeLogin(player, "Giriş başarılı! Hoş geldiniz.");
                 return true;
             }
@@ -334,10 +361,20 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
     }
 
     private void completeLogin(Player player, String message) {
+        completeLogin(player, message, true);
+    }
+
+    private void completeLogin(Player player, String message, boolean refreshSession) {
         UUID id = player.getUniqueId();
         authenticated.add(id);
         attempts.remove(id);
         deadlines.remove(id);
+        if (refreshSession) {
+            long expiry = System.currentTimeMillis() + SESSION_MILLIS;
+            sessionDeadlines.put(id, expiry);
+            try { store.updateLoginSession(id.toString(), ipOf(player), System.currentTimeMillis()); }
+            catch (Exception e) { getLogger().warning("Oturum kaydedilemedi: " + e.getMessage()); }
+        }
         BossBar bar = bars.remove(id);
         if (bar != null) bar.removeAll();
         player.setInvulnerable(false);
