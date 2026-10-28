@@ -123,7 +123,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         UUID id = player.getUniqueId();
         authenticated.remove(id);
         attempts.put(id, 0);
-        boolean registered;
+        boolean registered = false;
         try {
             var account = store.get(id.toString());
             registered = account.isPresent();
