@@ -28,7 +28,7 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 @Plugin(id = "axovelocity", name = "AxoVelocity", version = "1.0.0", authors = {"Axo"})
-public final class AxoVelocityVelocity {
+public final class AxoLoginVelocity {
     private static final String LOGIN = "login";
     private static final String LOBBY = "lobby";
     private static final long SESSION_MILLIS = 2L * 60L * 60L * 1000L;
