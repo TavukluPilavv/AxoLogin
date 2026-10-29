@@ -43,6 +43,8 @@ import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.block.Biome;
 
 import java.net.InetSocketAddress;
+import com.google.common.io.ByteArrayDataOutput;
+import com.google.common.io.ByteStreams;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -76,16 +78,18 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+        getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
         getServer().getPluginManager().registerEvents(this, this);
         for (String name : new String[]{"register", "login", "forgot", "axologin"}) {
             if (getCommand(name) != null) getCommand(name).setExecutor(this);
         }
         getServer().getScheduler().runTaskTimer(this, this::tick, 20L, 20L);
-        getLogger().info("AxoLogin Paper etkin. Lobby plugins klasorune kurulmalidir.");
+        getLogger().info("AxoLogin Paper etkin. Giris basarili olunca Velocity uzerinden lobby sunucusuna aktarir.");
     }
 
     @Override
     public void onDisable() {
+        getServer().getMessenger().unregisterOutgoingPluginChannel(this, "BungeeCord");
         for (BossBar bar : bars.values()) bar.removeAll();
         bars.clear();
         if (store != null) {
@@ -423,17 +427,24 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
             online.showPlayer(this, player);
             player.showPlayer(this, online);
         }
-        World lobby = Bukkit.getWorld(getConfig().getString("lobby-world", "world"));
-        if (lobby == null && !Bukkit.getWorlds().isEmpty()) lobby = Bukkit.getWorlds().get(0);
-        if (lobby != null) {
-            Location spawn = lobby.getSpawnLocation();
-            player.teleport(spawn);
-        }
         player.sendActionBar(Component.text("§a✔ §f" + message));
         player.sendTitle("§a✔", "§f" + message, 0, 35, 10);
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.2f);
         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.7f, 1.0f);
         player.sendMessage("§8[§bAxoLogin§8] §a" + message);
+        // Transfer the authenticated player through Velocity to the configured backend.
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            if (!player.isOnline()) return;
+            try {
+                ByteArrayDataOutput out = ByteStreams.newDataOutput();
+                out.writeUTF("Connect");
+                out.writeUTF(getConfig().getString("lobby-server", "lobby"));
+                player.sendPluginMessage(this, "BungeeCord", out.toByteArray());
+            } catch (Exception e) {
+                getLogger().warning("Oyuncu Lobby sunucusuna aktarilamadi: " + e.getMessage());
+                player.sendMessage("§cLobby sunucusuna geçiş yapılamadı. Lütfen yetkiliye bildirin.");
+            }
+        }, 10L);
     }
 
     private void fail(Player player, String message) {
