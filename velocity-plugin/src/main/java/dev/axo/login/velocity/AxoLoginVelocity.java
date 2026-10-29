@@ -27,8 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-@Plugin(id = "axologin", name = "AxoLogin", version = "1.0.0", authors = {"Axo"})
-public final class AxoLoginVelocity {
+@Plugin(id = "axovelocity", name = "AxoVelocity", version = "1.0.0", authors = {"Axo"})
+public final class AxoVelocityVelocity {
     private static final String LOGIN = "login";
     private static final String LOBBY = "lobby";
     private static final long SESSION_MILLIS = 2L * 60L * 60L * 1000L;
@@ -42,7 +42,7 @@ public final class AxoLoginVelocity {
     private AuthStore store;
 
     @Inject
-    public AxoLoginVelocity(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory) {
+    public AxoVelocityVelocity(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory) {
         this.proxy = proxy;
         this.logger = logger;
         this.dataDirectory = dataDirectory;
@@ -54,7 +54,7 @@ public final class AxoLoginVelocity {
             Files.createDirectories(dataDirectory);
             store = new AuthStore(dataDirectory.resolve("accounts.db"));
         } catch (Exception e) {
-            logger.severe("AxoLogin database could not be opened: " + e.getMessage());
+            logger.severe("AxoVelocity database could not be opened: " + e.getMessage());
             return;
         }
         proxy.getCommandManager().register(
@@ -66,7 +66,7 @@ public final class AxoLoginVelocity {
         proxy.getCommandManager().register(
                 proxy.getCommandManager().metaBuilder("forgot").plugin(this).build(),
                 new AuthCommand("forgot"));
-        logger.info("AxoLogin Velocity enabled. Players must authenticate before entering other servers.");
+        logger.info("AxoVelocity Velocity enabled. Players must authenticate before entering other servers.");
     }
 
     @Subscribe
@@ -88,9 +88,9 @@ public final class AxoLoginVelocity {
                     return;
                 }
                 if (account.isPresent()) {
-                    player.sendMessage(Component.text("§bAxoLogin §8» §fHesabınız kayıtlı. §a/login <şifre>"));
+                    player.sendMessage(Component.text("§bAxoVelocity §8» §fHesabınız kayıtlı. §a/login <şifre>"));
                 } else {
-                    player.sendMessage(Component.text("§bAxoLogin §8» §fKayıt olmak için §a/register <şifre> <şifre-tekrar> <Gmail>"));
+                    player.sendMessage(Component.text("§bAxoVelocity §8» §fKayıt olmak için §a/register <şifre> <şifre-tekrar> <Gmail>"));
                 }
             } catch (Exception e) {
                 logger.warning("Account lookup failed: " + e.getMessage());
@@ -102,7 +102,7 @@ public final class AxoLoginVelocity {
     @Subscribe
     public void onPreConnect(ServerPreConnectEvent event) {
         Player player = event.getPlayer();
-        String target = event.getOriginalServer().getServerInfo().getName();
+        String target = event.getResult().getServer().map(s -> s.getServerInfo().getName()).orElse("");
         if (target.equalsIgnoreCase(LOGIN)) return;
         if (!authenticated.contains(player.getUniqueId())) {
             event.setResult(ServerPreConnectEvent.ServerResult.denied());
@@ -128,7 +128,7 @@ public final class AxoLoginVelocity {
         } catch (Exception e) {
             logger.warning("Could not save login session: " + e.getMessage());
         }
-        player.sendMessage(Component.text("§aAxoLogin §8» §fGiriş başarılı! Lobby'ye aktarılıyorsunuz."));
+        player.sendMessage(Component.text("§aAxoVelocity §8» §fGiriş başarılı! Lobby'ye aktarılıyorsunuz."));
         proxy.getServer(LOBBY).ifPresentOrElse(server ->
                 player.createConnectionRequest(server).connect().thenAccept(result -> {
                     if (!result.isSuccessful()) player.sendMessage(Component.text("§cLobby bağlantısı başarısız. Lobby sunucusu açık mı?"));
@@ -147,7 +147,7 @@ public final class AxoLoginVelocity {
                 return;
             }
             if (type.equals("forgot")) {
-                player.sendMessage(Component.text("§bAxoLogin §8» §fŞifre sıfırlama için yetkili ekiple iletişime geçin."));
+                player.sendMessage(Component.text("§bAxoVelocity §8» §fŞifre sıfırlama için yetkili ekiple iletişime geçin."));
                 return;
             }
             UUID id = player.getUniqueId();
