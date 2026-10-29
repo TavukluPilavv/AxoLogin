@@ -25,6 +25,7 @@ java {
 tasks.named('shadowJar') {
     archiveBaseName = 'AxoVelocity'
     archiveClassifier = ''
+    mergeServiceFiles()
 }
 
 tasks.named('jar') { archiveClassifier = 'plain' }
