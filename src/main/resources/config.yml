@@ -13,5 +13,8 @@ void-pitch: -2.3
 # Giris basarili olunca oyuncu bu dunyanin dogus noktasina gider.
 lobby-world: world
 
+# Proxy uzerindeki sunucu adi (Velocity config'te servers bolumundeki anahtar).
+lobby-server: lobby
+
 # Minecraft'in kendi muzik sesi (resource pack gerekmez).
 music-enabled: true
