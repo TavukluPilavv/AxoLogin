@@ -156,7 +156,12 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
                 player.hidePlayer(this, online);
             }
         }
-        // Keep the player's normal server spawn; login is performed in place.
+        // Spawn at the configured world spawn, never in a separate void world.
+        Location spawn = player.getWorld().getSpawnLocation();
+        int highestY = player.getWorld().getHighestBlockYAt(spawn.getBlockX(), spawn.getBlockZ());
+        Location safeSpawn = new Location(player.getWorld(), spawn.getBlockX() + 0.5, highestY + 1.0,
+                spawn.getBlockZ() + 0.5, spawn.getYaw(), spawn.getPitch());
+        player.teleport(safeSpawn);
         BossBar bar = Bukkit.createBossBar("§bAxoLogin §8• §fLütfen giriş yapınız §7(" + timeoutSeconds + "s)", BarColor.BLUE, BarStyle.SOLID);
         bar.setProgress(1.0);
         bar.addPlayer(player);
@@ -263,7 +268,9 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         Player p = event.getPlayer();
         // Login voidunda uçuş gereklidir; lobby uçuş kısıtlaması kilitli oyunculara uygulanmaz.
         if (isLocked(p)) {
-            p.setAllowFlight(true);
+            event.setCancelled(true);
+            p.setFlying(false);
+            p.setAllowFlight(false);
             return;
         }
         if (isLobby(p.getWorld()) && !p.isOp() && event.isFlying()) {
@@ -489,8 +496,8 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         deadlines.put(id, System.currentTimeMillis() + timeoutSeconds * 1000L);
         player.setGameMode(GameMode.ADVENTURE);
         player.setInvulnerable(true);
-        player.setAllowFlight(true);
-        player.setFlying(true);
+        player.setAllowFlight(false);
+        player.setFlying(false);
         player.setCollidable(false);
         // Keep the player at their current location when re-authentication is required.
         BossBar oldBar = bars.remove(id);
