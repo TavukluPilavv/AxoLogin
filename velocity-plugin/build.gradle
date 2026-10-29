@@ -23,7 +23,7 @@ java {
 }
 
 tasks.named('shadowJar') {
-    archiveBaseName = 'AxoLogin-Velocity'
+    archiveBaseName = 'AxoVelocity'
     archiveClassifier = ''
 }
 
