@@ -72,7 +72,6 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         musicEnabled = getConfig().getBoolean("music-enabled", true);
         try {
             store = new AuthStore(getDataFolder().toPath().resolve("accounts.db"));
-            createVoidWorld();
         } catch (Exception e) {
             getLogger().severe("AxoLogin baslatilamadi: " + e.getMessage());
             getServer().getPluginManager().disablePlugin(this);
@@ -148,8 +147,8 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         deadlines.put(id, System.currentTimeMillis() + timeoutSeconds * 1000L);
         player.setGameMode(GameMode.ADVENTURE);
         player.setInvulnerable(true);
-        player.setAllowFlight(true);
-        player.setFlying(true);
+        player.setAllowFlight(false);
+        player.setFlying(false);
         player.setCollidable(false);
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (!online.equals(player)) {
@@ -157,17 +156,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
                 player.hidePlayer(this, online);
             }
         }
-        Location start = new Location(voidWorld,
-                getConfig().getDouble("void-x", 0.5),
-                getConfig().getDouble("void-y", 100.0),
-                getConfig().getDouble("void-z", 0.5),
-                (float) getConfig().getDouble("void-yaw", 0.0),
-                (float) getConfig().getDouble("void-pitch", 0.0));
-        player.teleport(start);
-        // Other spawn plugins may teleport on join a tick later; keep unauthenticated players in the void.
-        Bukkit.getScheduler().runTask(this, () -> sendToLoginVoid(player));
-        Bukkit.getScheduler().runTaskLater(this, () -> sendToLoginVoid(player), 5L);
-        Bukkit.getScheduler().runTaskLater(this, () -> sendToLoginVoid(player), 20L);
+        // Keep the player's normal server spawn; login is performed in place.
         BossBar bar = Bukkit.createBossBar("§bAxoLogin §8• §fLütfen giriş yapınız §7(" + timeoutSeconds + "s)", BarColor.BLUE, BarStyle.SOLID);
         bar.setProgress(1.0);
         bar.addPlayer(player);
@@ -186,17 +175,6 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         if (musicEnabled) {
             player.playSound(player.getLocation(), Sound.MUSIC_DISC_OTHERSIDE, 0.22f, 1.0f);
         }
-    }
-
-    private void sendToLoginVoid(Player player) {
-        if (player == null || !player.isOnline() || !isLocked(player) || voidWorld == null) return;
-        Location start = new Location(voidWorld,
-                getConfig().getDouble("void-x", 0.5),
-                getConfig().getDouble("void-y", 100.0),
-                getConfig().getDouble("void-z", 0.5),
-                (float) getConfig().getDouble("void-yaw", 0.0),
-                (float) getConfig().getDouble("void-pitch", 0.0));
-        if (!player.getWorld().equals(voidWorld)) player.teleport(start);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -514,13 +492,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         player.setAllowFlight(true);
         player.setFlying(true);
         player.setCollidable(false);
-        Location start = new Location(voidWorld,
-                getConfig().getDouble("void-x", 0.5),
-                getConfig().getDouble("void-y", 100.0),
-                getConfig().getDouble("void-z", 0.5),
-                (float) getConfig().getDouble("void-yaw", 0.0),
-                (float) getConfig().getDouble("void-pitch", 0.0));
-        player.teleport(start);
+        // Keep the player at their current location when re-authentication is required.
         BossBar oldBar = bars.remove(id);
         if (oldBar != null) oldBar.removeAll();
         BossBar bar = Bukkit.createBossBar("§bAxoLogin §8• §fOturum süreniz doldu §7(" + timeoutSeconds + "s)", BarColor.BLUE, BarStyle.SOLID);
