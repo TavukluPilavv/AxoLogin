@@ -42,7 +42,7 @@ public final class AxoLoginVelocity {
     private AuthStore store;
 
     @Inject
-    public AxoVelocityVelocity(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory) {
+    public AxoLoginVelocity(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory) {
         this.proxy = proxy;
         this.logger = logger;
         this.dataDirectory = dataDirectory;
