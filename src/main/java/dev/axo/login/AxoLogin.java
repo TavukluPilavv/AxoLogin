@@ -141,12 +141,23 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
             if (account.isPresent() && !currentIp.isBlank()
                     && currentIp.equals(account.get().lastIp())
                     && account.get().lastLoginAt() > 0
+                    && now >= account.get().lastLoginAt()
                     && now - account.get().lastLoginAt() < SESSION_MILLIS
                     && LocalDate.ofInstant(Instant.ofEpochMilli(now), SESSION_ZONE)
                         .equals(LocalDate.ofInstant(Instant.ofEpochMilli(account.get().lastLoginAt()), SESSION_ZONE))) {
                 sessionDeadlines.put(id, sessionExpiry(account.get().lastLoginAt()));
+                getLogger().info("Oturum hatirlandi: " + player.getName());
                 completeLogin(player, "Güvenli oturumunuz hatırlandı.", false);
                 return;
+            }
+            if (account.isPresent()) {
+                String reason = currentIp.isBlank() ? "IP okunamadi"
+                        : !currentIp.equals(account.get().lastIp()) ? "IP degismis"
+                        : account.get().lastLoginAt() <= 0 ? "onceki giris kaydi yok"
+                        : now < account.get().lastLoginAt() ? "saat/tarih uyumsuz"
+                        : now - account.get().lastLoginAt() >= SESSION_MILLIS ? "3 saat dolmus"
+                        : "gun degismis";
+                getLogger().info("Oturum yeniden giris istedi (" + player.getName() + "): " + reason);
             }
         } catch (Exception e) {
             getLogger().warning("Oturum kontrolü yapılamadı: " + e.getMessage());
@@ -323,10 +334,10 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
             try {
                 if (store.get(player.getUniqueId().toString()).isPresent()) {
                     player.sendMessage("§cAxoLogin §8» §fHesabınız kayıtlı. Lütfen /login <şifre> kullanınız.");
-                    player.sendActionBar(Component.text("§c✖ §fÖnce /login <şifre> kullanınız."));
+                    player.sendActionBar(Component.text("§eGiriş yapınız: /login <şifre>"));
                 } else {
                     player.sendMessage("§cAxoLogin §8» §fHenüz kayıtlı değilsiniz. Lütfen /register <şifre> <şifre-tekrar> <Gmail> kullanınız.");
-                    player.sendActionBar(Component.text("§c✖ §fÖnce kayıt olunuz."));
+                    player.sendActionBar(Component.empty());
                 }
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.55f, 0.8f);
             } catch (Exception e) { loginRequired(player); }
@@ -463,10 +474,10 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         if (!isLocked(player)) return;
         try {
             if (store.get(player.getUniqueId().toString()).isPresent()) {
-                player.sendActionBar(Component.text("§c✖ §fHesabınız kayıtlı: /login <şifre>"));
+                player.sendActionBar(Component.text("§eGiriş yapınız: /login <şifre>"));
                 player.sendMessage("§cAxoLogin §8» §fHesabınız kayıtlı. Lütfen /login <şifre> kullanınız.");
             } else {
-                player.sendActionBar(Component.text("§c✖ §fKayıt olun: /register <şifre> <şifre-tekrar> <Gmail>"));
+                player.sendActionBar(Component.empty());
                 player.sendMessage("§cAxoLogin §8» §fKayıtlı değilsiniz. Lütfen /register <şifre> <şifre-tekrar> <Gmail> kullanınız.");
             }
         } catch (Exception e) {
