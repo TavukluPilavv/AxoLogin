@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.*;
 import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
 
 final class AuthStore implements AutoCloseable {
     record Account(String name, String passwordHash, String email, String lastIp, long lastLoginAt) {}
@@ -58,6 +60,18 @@ final class AuthStore implements AutoCloseable {
             p.setString(1, BCrypt.hashpw(password, BCrypt.gensalt(12)));
             p.setString(2, uuid); p.executeUpdate();
         }
+    }
+
+    synchronized List<String> namesByIp(String ip) throws SQLException {
+        List<String> names = new ArrayList<>();
+        if (ip == null || ip.isBlank()) return names;
+        try (PreparedStatement p = connection.prepareStatement("SELECT name FROM accounts WHERE last_ip=? ORDER BY name COLLATE NOCASE")) {
+            p.setString(1, ip);
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) names.add(r.getString(1));
+            }
+        }
+        return names;
     }
 
     @Override public void close() throws SQLException { connection.close(); }
