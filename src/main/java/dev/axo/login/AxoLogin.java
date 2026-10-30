@@ -265,7 +265,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         if (event.getDamager() instanceof Player directPlayer) attacker = directPlayer;
         else if (event.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player shooter) attacker = shooter;
         if (attacker != null && isLocked(attacker)) { event.setCancelled(true); loginRequired(attacker); return; }
-        if (isLoginWorld(victim.getWorld()) && ((attacker != null && !attacker.isOp()) || !victim.isOp())) { event.setCancelled(true); return; }
+        if (isLoginWorld(victim.getWorld()) && ((attacker != null && !attacker.isOp()) || (attacker == null && !victim.isOp()))) { event.setCancelled(true); return; }
         if (isLobby(victim.getWorld())) {
             event.setCancelled(true);
             if (attacker != null) attacker.sendActionBar(Component.text("§c✖ §fLobide PvP kapalı."));
@@ -299,11 +299,10 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
                 && (isLoginWorld(event.getBlock().getWorld()) || isLobby(event.getBlock().getWorld()))) event.setCancelled(true);
     }
     @EventHandler public void onTntExplode(EntityExplodeEvent event) {
-        if ((isLoginWorld(event.getLocation().getWorld()) || isLobby(event.getLocation().getWorld()))
-                && event.getEntity() instanceof TNTPrimed) event.setCancelled(true);
+        if (isLobby(event.getLocation().getWorld()) && event.getEntity() instanceof TNTPrimed) event.setCancelled(true);
     }
     @EventHandler public void onBlockExplode(BlockExplodeEvent event) {
-        if (isLoginWorld(event.getBlock().getWorld()) || isLobby(event.getBlock().getWorld())) event.setCancelled(true);
+        if (isLobby(event.getBlock().getWorld())) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
