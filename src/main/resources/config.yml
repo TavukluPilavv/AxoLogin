@@ -11,6 +11,7 @@ void-yaw: -10.7
 void-pitch: -2.3
 
 # Login backend dunyasinin adi
+login-world: world
 lobby-world: world
 
 # Velocity config'te gercek Lobby sunucusunun adi: login
