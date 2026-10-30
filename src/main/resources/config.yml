@@ -1,8 +1,8 @@
-# AxoLogin Paper - Lobby ayarlari
+# AxoLogin Paper - Login backend ayarlari
 timeout-seconds: 120
 max-attempts: 3
 
-# Giris yapmayan tum oyuncular ayni bos dunyada bu noktada bekletilir.
+# Giris yapmayan oyuncular mevcut dunyanin guvenli dogus noktasinda bekletilir.
 void-world: axologin_void
 void-x: -1831.236
 void-y: 6.0
@@ -10,11 +10,10 @@ void-z: -1763.309
 void-yaw: -10.7
 void-pitch: -2.3
 
-# Giris basarili olunca oyuncu bu dunyanin dogus noktasina gider.
+# Login backend dunyasinin adi
 lobby-world: world
 
-# Proxy uzerindeki sunucu adi (Velocity config'te servers bolumundeki anahtar).
-lobby-server: lobby
+# Velocity config'te gercek Lobby sunucusunun adi: login
+lobby-server: login
 
-# Minecraft'in kendi muzik sesi (resource pack gerekmez).
 music-enabled: true
