@@ -19,6 +19,10 @@ final class AuthStore implements AutoCloseable {
             s.executeUpdate("CREATE TABLE IF NOT EXISTS accounts (uuid TEXT PRIMARY KEY, name TEXT NOT NULL, password_hash TEXT NOT NULL, email TEXT NOT NULL UNIQUE, last_ip TEXT NOT NULL DEFAULT '', last_login_at INTEGER NOT NULL DEFAULT 0)");
             try { s.executeUpdate("ALTER TABLE accounts ADD COLUMN last_login_at INTEGER NOT NULL DEFAULT 0"); }
             catch (SQLException ignored) { }
+            try { s.executeUpdate("ALTER TABLE accounts ADD COLUMN created_ip TEXT NOT NULL DEFAULT ''"); }
+            catch (SQLException ignored) { }
+            // Existing accounts keep their original known IP as a best-effort migration.
+            s.executeUpdate("UPDATE accounts SET created_ip=last_ip WHERE created_ip='' AND last_ip<>''");
         }
     }
 
@@ -32,9 +36,9 @@ final class AuthStore implements AutoCloseable {
     }
 
     synchronized void create(String uuid, String name, String password, String email, String ip) throws SQLException {
-        try (PreparedStatement p = connection.prepareStatement("INSERT INTO accounts(uuid,name,password_hash,email,last_ip,last_login_at) VALUES(?,?,?,?,?,0)")) {
+        try (PreparedStatement p = connection.prepareStatement("INSERT INTO accounts(uuid,name,password_hash,email,last_ip,last_login_at,created_ip) VALUES(?,?,?,?,?,0,?)")) {
             p.setString(1, uuid); p.setString(2, name); p.setString(3, BCrypt.hashpw(password, BCrypt.gensalt(12)));
-            p.setString(4, email); p.setString(5, ip); p.executeUpdate();
+            p.setString(4, email); p.setString(5, ip); p.setString(6, ip); p.executeUpdate();
         }
     }
 
@@ -65,7 +69,7 @@ final class AuthStore implements AutoCloseable {
     synchronized List<String> namesByIp(String ip) throws SQLException {
         List<String> names = new ArrayList<>();
         if (ip == null || ip.isBlank()) return names;
-        try (PreparedStatement p = connection.prepareStatement("SELECT name FROM accounts WHERE last_ip=? ORDER BY name COLLATE NOCASE")) {
+        try (PreparedStatement p = connection.prepareStatement("SELECT name FROM accounts WHERE created_ip=? ORDER BY name COLLATE NOCASE")) {
             p.setString(1, ip);
             try (ResultSet r = p.executeQuery()) {
                 while (r.next()) names.add(r.getString(1));
