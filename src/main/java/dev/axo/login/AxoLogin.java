@@ -414,7 +414,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         if (refreshSession) {
             long loginAt = System.currentTimeMillis();
             sessionDeadlines.put(id, sessionExpiry(loginAt));
-            try { store.updateLoginSession(id.toString(), ipOf(player), loginAt);
+            try { store.updateLoginSession(id.toString(), ipOf(player), loginAt); }
             catch (Exception e) { getLogger().warning("Oturum kaydedilemedi: " + e.getMessage()); }
         }
         BossBar bar = bars.remove(id);
