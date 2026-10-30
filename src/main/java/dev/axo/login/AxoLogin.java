@@ -49,6 +49,10 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class AxoLogin extends JavaPlugin implements Listener, CommandExecutor {
@@ -56,7 +60,9 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
     private final Map<UUID, Integer> attempts = new ConcurrentHashMap<>();
     private final Map<UUID, Long> deadlines = new ConcurrentHashMap<>();
     private final Map<UUID, Long> sessionDeadlines = new ConcurrentHashMap<>();
-    private static final long SESSION_MILLIS = 2L * 60L * 60L * 1000L;
+    private static final long SESSION_MILLIS = 3L * 60L * 60L * 1000L;
+    private static final ZoneId SESSION_ZONE = ZoneId.of("Europe/Istanbul");
+    private final Map<UUID, Location> loginSpawns = new ConcurrentHashMap<>();
     private final Map<UUID, BossBar> bars = new ConcurrentHashMap<>();
     private AuthStore store;
     private int timeoutSeconds;
@@ -135,8 +141,10 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
             if (account.isPresent() && !currentIp.isBlank()
                     && currentIp.equals(account.get().lastIp())
                     && account.get().lastLoginAt() > 0
-                    && now - account.get().lastLoginAt() < SESSION_MILLIS) {
-                sessionDeadlines.put(id, account.get().lastLoginAt() + SESSION_MILLIS);
+                    && now - account.get().lastLoginAt() < SESSION_MILLIS
+                    && LocalDate.ofInstant(Instant.ofEpochMilli(now), SESSION_ZONE)
+                        .equals(LocalDate.ofInstant(Instant.ofEpochMilli(account.get().lastLoginAt()), SESSION_ZONE))) {
+                sessionDeadlines.put(id, sessionExpiry(account.get().lastLoginAt()));
                 completeLogin(player, "Güvenli oturumunuz hatırlandı.", false);
                 return;
             }
@@ -157,10 +165,8 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
             }
         }
         // Spawn at the configured world spawn, never in a separate void world.
-        Location spawn = player.getWorld().getSpawnLocation();
-        int highestY = player.getWorld().getHighestBlockYAt(spawn.getBlockX(), spawn.getBlockZ());
-        Location safeSpawn = new Location(player.getWorld(), spawn.getBlockX() + 0.5, highestY + 1.0,
-                spawn.getBlockZ() + 0.5, spawn.getYaw(), spawn.getPitch());
+        Location safeSpawn = findUniqueLoginSpawn(player);
+        loginSpawns.put(id, safeSpawn);
         player.teleport(safeSpawn);
         BossBar bar = Bukkit.createBossBar("§bAxoLogin §8• §fLütfen giriş yapınız §7(" + timeoutSeconds + "s)", BarColor.BLUE, BarStyle.SOLID);
         bar.setProgress(1.0);
@@ -190,6 +196,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         attempts.remove(id);
         deadlines.remove(id);
         sessionDeadlines.remove(id);
+        loginSpawns.remove(id);
         BossBar bar = bars.remove(id);
         if (bar != null) bar.removeAll();
     }
@@ -209,6 +216,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
     }
 
     @EventHandler public void onBreak(BlockBreakEvent event) { if (isLocked(event.getPlayer())) { event.setCancelled(true); loginRequired(event.getPlayer()); return; }
+        if (isLoginWorld(event.getPlayer().getWorld()) && !event.getPlayer().isOp()) { event.setCancelled(true); return; }
         if (isLobby(event.getPlayer().getWorld()) && !event.getPlayer().isOp()) {
             event.setCancelled(true);
             event.getPlayer().sendActionBar(Component.text("§c✖ §fLobi dünyasında blok kıramazsınız."));
@@ -217,6 +225,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
     @EventHandler public void onPlace(BlockPlaceEvent event) {
         Player p = event.getPlayer();
         if (isLocked(p)) { event.setCancelled(true); loginRequired(p); return; }
+        if (isLoginWorld(p.getWorld()) && !p.isOp()) { event.setCancelled(true); return; }
         if (isLobby(p.getWorld()) && !p.isOp()) {
             event.setCancelled(true);
             p.sendActionBar(Component.text(event.getBlockPlaced().getType() == Material.TNT ? "§c✖ §fLobide TNT kullanamazsınız." : "§c✖ §fLobi dünyasında blok koyamazsınız."));
@@ -225,6 +234,10 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
     @EventHandler public void onInteract(PlayerInteractEvent event) {
         Player p = event.getPlayer();
         if (isLocked(p)) { event.setCancelled(true); loginRequired(p); return; }
+        if (isLoginWorld(p.getWorld()) && !p.isOp() && event.getItem() != null) {
+            Material type = event.getItem().getType();
+            if (type == Material.TNT || type == Material.FLINT_AND_STEEL || type == Material.FIRE_CHARGE) { event.setCancelled(true); return; }
+        }
         if (isLobby(p.getWorld()) && !p.isOp() && event.getItem() != null) {
             Material m = event.getItem().getType();
             if (m == Material.ENDER_PEARL || m == Material.ENDER_EYE) {
@@ -252,6 +265,7 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         if (event.getDamager() instanceof Player directPlayer) attacker = directPlayer;
         else if (event.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Player shooter) attacker = shooter;
         if (attacker != null && isLocked(attacker)) { event.setCancelled(true); loginRequired(attacker); return; }
+        if (isLoginWorld(victim.getWorld()) && ((attacker != null && !attacker.isOp()) || !victim.isOp())) { event.setCancelled(true); return; }
         if (isLobby(victim.getWorld())) {
             event.setCancelled(true);
             if (attacker != null) attacker.sendActionBar(Component.text("§c✖ §fLobide PvP kapalı."));
@@ -281,13 +295,15 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         }
     }
     @EventHandler public void onIgnite(BlockIgniteEvent event) {
-        if (isLobby(event.getBlock().getWorld()) && event.getPlayer() != null && !event.getPlayer().isOp()) event.setCancelled(true);
+        if (event.getPlayer() != null && !event.getPlayer().isOp()
+                && (isLoginWorld(event.getBlock().getWorld()) || isLobby(event.getBlock().getWorld()))) event.setCancelled(true);
     }
     @EventHandler public void onTntExplode(EntityExplodeEvent event) {
-        if (isLobby(event.getLocation().getWorld()) && event.getEntity() instanceof TNTPrimed) event.setCancelled(true);
+        if ((isLoginWorld(event.getLocation().getWorld()) || isLobby(event.getLocation().getWorld()))
+                && event.getEntity() instanceof TNTPrimed) event.setCancelled(true);
     }
     @EventHandler public void onBlockExplode(BlockExplodeEvent event) {
-        if (isLobby(event.getBlock().getWorld())) event.setCancelled(true);
+        if (isLoginWorld(event.getBlock().getWorld()) || isLobby(event.getBlock().getWorld())) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -397,9 +413,9 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         attempts.remove(id);
         deadlines.remove(id);
         if (refreshSession) {
-            long expiry = System.currentTimeMillis() + SESSION_MILLIS;
-            sessionDeadlines.put(id, expiry);
-            try { store.updateLoginSession(id.toString(), ipOf(player), System.currentTimeMillis()); }
+            long loginAt = System.currentTimeMillis();
+            sessionDeadlines.put(id, sessionExpiry(loginAt));
+            try { store.updateLoginSession(id.toString(), ipOf(player), loginAt);
             catch (Exception e) { getLogger().warning("Oturum kaydedilemedi: " + e.getMessage()); }
         }
         BossBar bar = bars.remove(id);
@@ -412,11 +428,16 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
             online.showPlayer(this, player);
             player.showPlayer(this, online);
         }
-        player.sendActionBar(Component.text("§a✔ §f" + message));
-        player.sendTitle("§a✔", "§f" + message, 0, 35, 10);
-        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.2f);
-        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.7f, 1.0f);
+        String welcome = "Hoş geldin, " + player.getName();
+        player.sendActionBar(Component.text("§a✔ §f" + welcome));
+        player.sendTitle("§a✔", "§f" + welcome, 0, 40, 10);
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 1.6f);
         player.sendMessage("§8[§bAxoLogin§8] §a" + message);
+        try {
+            List<String> sameIpNames = store.namesByIp(ipOf(player));
+            player.sendMessage("§bBu IP ile oluşturulan hesap sayısı: §e" + sameIpNames.size());
+            player.sendMessage("§bBu IP'deki hesaplar: §f" + (sameIpNames.isEmpty() ? "Yok" : String.join(", ", sameIpNames)));
+        } catch (Exception e) { getLogger().warning("IP hesap listesi okunamadi: " + e.getMessage()); }
         // Transfer the authenticated player through Velocity to the configured backend.
         Bukkit.getScheduler().runTaskLater(this, () -> {
             if (!player.isOnline()) return;
@@ -453,6 +474,37 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
             player.sendActionBar(Component.text("§c✖ §fÖnce giriş yapınız."));
         }
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.55f, 0.8f);
+    }
+
+    private boolean isLoginWorld(World world) {
+        return world != null && world.getName().equalsIgnoreCase(getConfig().getString("login-world", "world"));
+    }
+
+    private Location findUniqueLoginSpawn(Player player) {
+        World world = player.getWorld();
+        Location origin = world.getSpawnLocation();
+        for (int slot = 0; slot < 10000; slot++) {
+            int column = slot % 9;
+            int row = slot / 9;
+            int x = origin.getBlockX() + (column - 4) * 8;
+            int z = origin.getBlockZ() + (row + 1) * 8;
+            int y = world.getHighestBlockYAt(x, z);
+            Location candidate = new Location(world, x + 0.5, y + 1.0, z + 0.5, origin.getYaw(), origin.getPitch());
+            if (!world.getBlockAt(x, y, z).getType().isSolid()
+                    || !world.getBlockAt(x, y + 1, z).isPassable()
+                    || !world.getBlockAt(x, y + 2, z).isPassable()) continue;
+            boolean occupied = loginSpawns.values().stream().anyMatch(loc -> loc.getWorld() != null
+                    && loc.getWorld().equals(world) && loc.distanceSquared(candidate) < 36.0);
+            if (!occupied) return candidate;
+        }
+        throw new IllegalStateException("Oyuncu icin bos giris noktasi bulunamadi.");
+    }
+
+    private long sessionExpiry(long loginAt) {
+        long threeHours = loginAt + SESSION_MILLIS;
+        LocalDate nextDay = LocalDate.ofInstant(Instant.ofEpochMilli(loginAt), SESSION_ZONE).plusDays(1);
+        long dayEnd = nextDay.atStartOfDay(SESSION_ZONE).toInstant().toEpochMilli();
+        return Math.min(threeHours, dayEnd);
     }
 
     private boolean isLobby(World world) {
@@ -506,8 +558,8 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         bar.setProgress(1.0);
         bar.addPlayer(player);
         bars.put(id, bar);
-        player.sendTitle("§c✖", "§fİki saat doldu, tekrar giriş yapınız", 10, 60, 10);
-        player.sendMessage("§cAxoLogin §8» §fİki saatlik oturum süreniz doldu. /login <şifre> kullanınız.");
+        player.sendTitle("§c✖", "§fOturum süreniz doldu, tekrar giriş yapınız", 10, 60, 10);
+        player.sendMessage("§cAxoLogin §8» §f3 saatlik veya günlük oturum süreniz doldu. /login <şifre> kullanınız.");
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (!online.equals(player)) {
                 online.hidePlayer(this, player);
