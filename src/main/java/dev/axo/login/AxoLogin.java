@@ -39,6 +39,8 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.block.Biome;
 
@@ -212,17 +214,19 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         if (bar != null) bar.removeAll();
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onMove(PlayerMoveEvent event) {
-        if (isLocked(event.getPlayer()) && event.getTo() != null &&
-                (event.getFrom().getBlockX() != event.getTo().getBlockX()
-                || event.getFrom().getBlockY() != event.getTo().getBlockY()
-                || event.getFrom().getBlockZ() != event.getTo().getBlockZ())) {
-            Location from = event.getFrom();
-            event.setTo(new Location(from.getWorld(), from.getX(), from.getY(), from.getZ(), event.getTo().getYaw(), event.getTo().getPitch()));
+        Player p = event.getPlayer();
+        if (isLocked(p) && event.getTo() != null) {
+            // Block even tiny sub-block movement; allow only looking around.
+            if (Double.compare(event.getFrom().getX(), event.getTo().getX()) != 0
+                    || Double.compare(event.getFrom().getY(), event.getTo().getY()) != 0
+                    || Double.compare(event.getFrom().getZ(), event.getTo().getZ()) != 0) {
+                event.setCancelled(true);
+                p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+            }
             return;
         }
-        Player p = event.getPlayer();
         if (isLobby(p.getWorld()) && !p.isOp() && p.isFlying()) p.setFlying(false);
     }
 
@@ -442,6 +446,8 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
         player.sendActionBar(Component.text("§a✔ §f" + welcome));
         player.sendTitle("§a✔", "§f" + welcome, 0, 40, 10);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 1.6f);
+        // Brief Darkness effect for every successfully authenticated player.
+        player.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 20 * 5, 0, false, false, false));
         player.sendMessage("§8[§bAxoLogin§8] §a" + message);
         try {
             List<String> sameIpNames = store.namesByIp(ipOf(player));
@@ -535,6 +541,8 @@ public final class AxoLogin extends JavaPlugin implements Listener, CommandExecu
                 continue;
             }
             if (isLocked(player)) {
+                // Clear residual velocity every tick so knockback/plugins cannot slide the player.
+                player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
                 Long deadline = deadlines.get(id);
                 if (deadline != null) {
                     long remaining = Math.max(0, (deadline - now + 999) / 1000);
